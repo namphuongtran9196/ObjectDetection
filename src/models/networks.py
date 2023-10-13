@@ -1,20 +1,24 @@
-import argparse
-import logging
+from torchvision import models
 
-logging.getLogger().setLevel(logging.INFO)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+from configs.base import Config
 
-
-def main(args):
-    logging.info(args.message)
+from .faster_rcnn import build_faster_rcnn
 
 
-def arg_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--message", type=str, default="Hello World", help="model file")
-    return parser.parse_args()
+def faster_rcnn(opt: Config) -> models.detection.FasterRCNN:
+    """Build Faster RCNN model
 
+    Args:
+        num_classes (int): the number of classes
+        backbone_name (str, optional): the name of the backbone model which is used in Faster RCNN. Defaults to "fasterrcnn_resnet50_fpn".
+        the name of the backbone model can be one of the following:
+                "fasterrcnn_resnet50_fpn"
+                "fasterrcnn_resnet50_fpn_v2"
+                "fasterrcnn_mobilenet_v3_large_fpn"
+                "fasterrcnn_mobilenet_v3_large_320_fpn"
 
-if __name__ == "__main__":
-    args = arg_parser()
-    main(args)
+    Returns:
+        models.detection.FasterRCNN: Faster RCNN model
+    """
+
+    return build_faster_rcnn(opt.backbone_name, pretrained=True, num_classes=opt.num_classes)
