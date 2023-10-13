@@ -11,12 +11,12 @@ import random
 
 import numpy as np
 import torch
-from torch import nn, optim
+from torch import optim
 
+import trainer as BaseTrainer
 from configs.base import Config
 from data.dataloader import build_train_test_dataset
 from models import networks
-from trainer import Trainer
 from utils.configs import get_options
 from utils.torch.callbacks import CheckpointsCallback
 
@@ -54,7 +54,7 @@ def main(opt: Config):
     train_ds, test_ds = build_train_test_dataset(opt)
 
     logging.info("Initializing trainer...")
-    trainer = Trainer(
+    trainer = getattr(BaseTrainer, opt.trainer_type)(
         network=network,
         criterion=None,
         log_dir=opt.checkpoint_dir,

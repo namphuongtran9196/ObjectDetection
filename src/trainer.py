@@ -7,7 +7,7 @@ from torchvision import models
 from utils.torch.trainer import TorchTrainer
 
 
-class Trainer(TorchTrainer):
+class FasterRCNNTrainer(TorchTrainer):
     def __init__(
         self,
         network: Union[models.detection.FasterRCNN, models.detection.FasterRCNN],
@@ -42,7 +42,8 @@ class Trainer(TorchTrainer):
         return {"loss": loss.detach().cpu().item()}
 
     def test_step(self, batch: Dict[str, Tensor]) -> Dict[str, Tensor]:
-        self.network.eval()
+        # We not use eval() because the loss is not calculated in the eval mode
+        self.network.train()
         # Prepare batch
         images, targets = batch
 

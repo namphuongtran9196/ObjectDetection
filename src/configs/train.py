@@ -24,15 +24,17 @@ class Config(BaseConfig):
         self.warmup_iters: int = 1000  # should be less than dataloader size
 
         # Dataset
-        self.data_root: str = "data/bakery.v1i.coco"
+        self.data_root: str = "data/coco_yolo"
+        self.data_format: str = "YoLoDataset"  # [CocoDataset, YoLoDataset]
 
         # Image settings
         self.input_size_width: int = 640
         self.input_size_height: int = 640
 
         # Model
-        self.num_classes: int = 6
+        self.num_classes: int = 46
         self.model_type: str = "faster_rcnn"  # [faster_rcnn]
+        self.trainer_type: str = "FasterRCNNTrainer"  # [FasterRCNNTrainer]
         self.backbone_name: str = "fasterrcnn_mobilenet_v3_large_fpn"  # [fasterrcnn_resnet50_fpn, fasterrcnn_resnet50_fpn_v2, fasterrcnn_mobilenet_v3_large_fpn, fasterrcnn_mobilenet_v3_large_320_fpn]
 
         # Config name

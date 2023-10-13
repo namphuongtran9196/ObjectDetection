@@ -1,9 +1,11 @@
 import copy
+import glob
 import os
-from typing import Tuple
+from typing import List, Tuple
 
 import albumentations as A
 import cv2
+import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
 from pycocotools.coco import COCO
@@ -35,7 +37,7 @@ def get_transforms(opt: Config, train=False):
     )
 
 
-class BaseDataset(datasets.VisionDataset):
+class CocoDataset(datasets.VisionDataset):
     def __init__(self, root, split="train", **kwargs):
         super().__init__(root, **kwargs)
         self.split = split  # train, valid, test
@@ -62,6 +64,7 @@ class BaseDataset(datasets.VisionDataset):
         target = copy.deepcopy(self._load_target(id))
 
         boxes = [t["bbox"] + [t["category_id"]] for t in target]  # required annotation format for albumentations
+
         if self.transforms is not None:
             transformed = self.transforms(image=image, bboxes=boxes)
 
@@ -84,6 +87,78 @@ class BaseDataset(datasets.VisionDataset):
         targ["image_id"] = torch.tensor([t["image_id"] for t in target])
         targ["area"] = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])  # we have a different area
         targ["iscrowd"] = torch.tensor([t["iscrowd"] for t in target], dtype=torch.int64)
+        print(target)
+        return image.div(255), targ  # scale images
+
+    def __len__(self):
+        return len(self.ids)
+
+
+class YoLoDataset(datasets.VisionDataset):
+    def __init__(self, root, split="train", **kwargs):
+        super().__init__(root, **kwargs)
+        self.split = split  # train, valid, test
+        img_paths = glob.glob(os.path.join(root, split, "images", "*"))
+        label_paths = []
+        for path in img_paths:
+            img_path, _ = os.path.splitext(path)
+            label_path = img_path.replace("images", "labels") + ".txt"
+            label_paths.append(label_path)
+
+        self.ids = list(zip(img_paths, label_paths))
+
+    def _load_image(self, path: str) -> np.ndarray:
+        image = cv2.imread(path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        return image
+
+    def _resize_and_pad(self, image, target):
+        pass
+
+    def _load_target(self, path: str) -> List:
+        with open(path, "r") as f:
+            lines = f.readlines()
+            lines = [line.strip().split() for line in lines]
+            lines = [[float(x) for x in line] for line in lines]
+        return lines
+
+    def __getitem__(self, index):
+        id = self.ids[index]
+        image_id = int(os.path.basename(id[0].split(".")[0]))
+        image = self._load_image(id[0])
+        target = self._load_target(id[1])
+
+        bboxes = []
+        cls_ids = []
+        for t in target:
+            cls_id = t[0]
+            # rescale to 0 - image_size
+            box = t[1:]
+            bboxes.append(box + [cls_id])
+            cls_ids.append(cls_id)
+
+        if self.transforms is not None:
+            transformed = self.transforms(image=image, bboxes=bboxes)
+
+        image = transformed["image"]
+        boxes = transformed["bboxes"]
+
+        new_boxes = []  # convert from xywh to xyxy
+        for box in boxes:
+            xmin = box[0]
+            xmax = xmin + box[2]
+            ymin = box[1]
+            ymax = ymin + box[3]
+            new_boxes.append([xmin, ymin, xmax, ymax])
+
+        boxes = torch.tensor(new_boxes, dtype=torch.float32)
+
+        targ = {}  # here is our transformed target
+        targ["boxes"] = boxes
+        targ["labels"] = torch.tensor([x for x in cls_ids], dtype=torch.int64)
+        targ["image_id"] = torch.tensor([image_id for _ in target])
+        targ["area"] = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])  # we have a different area
+        targ["iscrowd"] = torch.tensor([0 for t in target], dtype=torch.int64)
         return image.div(255), targ  # scale images
 
     def __len__(self):
@@ -100,14 +175,22 @@ def build_train_test_dataset(opt: Config, val_split: str = "val") -> Tuple[DataL
     Returns:
         Tuple[DataLoader, DataLoader]: train and test dataloader
     """
+    dataset = {
+        "CocoDataset": CocoDataset,
+        "YoLoDataset": YoLoDataset,
+    }
 
     def _collate_fn(batch):
         return tuple(zip(*batch))
 
-    train_dataset = BaseDataset(root=opt.data_root, split="train", transforms=get_transforms(opt, True))
+    dataset_fn = dataset.get(opt.data_format, None)
+
+    assert dataset_fn is not None, f"Dataset {opt.data_format} is not implemented"
+
+    train_dataset = dataset_fn(root=opt.data_root, split="train", transforms=get_transforms(opt, True))
     train_dataloader = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True, collate_fn=_collate_fn)
 
-    test_dataset = BaseDataset(root=opt.data_root, split=val_split, transforms=get_transforms(opt, False))
+    test_dataset = dataset_fn(root=opt.data_root, split=val_split, transforms=get_transforms(opt, False))
     test_dataloader = DataLoader(test_dataset, batch_size=opt.batch_size, shuffle=False, collate_fn=_collate_fn)
 
     return (train_dataloader, test_dataloader)
