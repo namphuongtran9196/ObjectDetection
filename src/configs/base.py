@@ -110,6 +110,7 @@ class Config(BaseConfig):
         self.warmup_iters: int = 1000  # should be less than dataloader size
 
         # Dataset
+        self.classes_path: str = "data/classes.txt"
         self.data_root: str = "data/bakery.v1i.coo"
         self.data_format: str = "CocoDataset"  # [CocoDataset, YoLoDataset]
 
