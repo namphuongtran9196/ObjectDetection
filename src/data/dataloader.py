@@ -64,7 +64,6 @@ class CocoDataset(datasets.VisionDataset):
         target = copy.deepcopy(self._load_target(id))
 
         boxes = [t["bbox"] + [t["category_id"]] for t in target]  # required annotation format for albumentations
-
         if self.transforms is not None:
             transformed = self.transforms(image=image, bboxes=boxes)
 
@@ -133,7 +132,12 @@ class YoLoDataset(datasets.VisionDataset):
         for t in target:
             cls_id = t[0]
             # rescale to 0 - image_size
-            box = t[1:]
+            box = np.array(t[1:]) * np.array([image.shape[1], image.shape[0], image.shape[1], image.shape[0]])
+            box = list(box)
+            # convert from xcycwh to xywh
+            box[0] = box[0] - box[2] / 2
+            box[1] = box[1] - box[3] / 2
+
             bboxes.append(box + [cls_id])
             cls_ids.append(cls_id)
 
