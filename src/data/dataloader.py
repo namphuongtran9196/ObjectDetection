@@ -86,7 +86,6 @@ class CocoDataset(datasets.VisionDataset):
         targ["image_id"] = torch.tensor([t["image_id"] for t in target])
         targ["area"] = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])  # we have a different area
         targ["iscrowd"] = torch.tensor([t["iscrowd"] for t in target], dtype=torch.int64)
-        print(target)
         return image.div(255), targ  # scale images
 
     def __len__(self):

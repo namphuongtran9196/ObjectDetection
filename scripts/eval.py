@@ -10,6 +10,7 @@ import random
 
 import numpy as np
 import torch
+import tqdm
 from albumentations.pytorch import ToTensorV2
 from matplotlib import pyplot as plt
 
@@ -26,12 +27,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def main(opt: Config, confidence: float):
-    if opt.classes_path is not None:
-        with open(opt.classes_path, "r") as f:
-            data = f.readlines()
-        classes = [x.strip() for x in data]
-        classes = [x.split()[-1] for x in classes]
-
     logging.info("Initializing model...")
     # Model
     try:
@@ -55,7 +50,7 @@ def main(opt: Config, confidence: float):
     ground_truth = []
     predictions = []
 
-    for inputs, targets in test_loader:
+    for inputs, targets in tqdm.tqdm(test_loader):
         # add to ground truth
         gt = []
         target = [{k: v.clone().detach().to(device) for k, v in t.items()} for t in targets][0]
@@ -69,7 +64,7 @@ def main(opt: Config, confidence: float):
         preds = []
         inputs = list(img.to(device) for img in inputs)
         with torch.no_grad():
-            prediction = network(input)[0]
+            prediction = network(inputs)[0]
             boxes = prediction["boxes"][prediction["scores"] > confidence].detach().cpu().numpy().tolist()
             scores = prediction["scores"][prediction["scores"] > confidence].detach().cpu().numpy().tolist()
             labels = prediction["labels"][prediction["scores"] > confidence].detach().cpu().numpy().tolist()

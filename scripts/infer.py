@@ -74,9 +74,12 @@ def main(opt: Config):
     )
     logging.info("Start inference...")
     img_preprocessed = preprocess(args.image_path, transforms)
-    img_preview = img_preprocessed.permute(1, 2, 0).cpu().numpy() * 255
+    img_preview = img_preprocessed.cpu() * 255
+    img_preview = torch.tensor(img_preview, dtype=torch.uint8)
+
     with torch.no_grad():
         prediction = network([img_preprocessed.to(device)])[0]
+        print(prediction)
 
     logging.info("Show result...")
     # Get classes name
@@ -93,6 +96,7 @@ def main(opt: Config):
             width=4,
         ).permute(1, 2, 0)
     )
+    plt.show()
 
 
 def arg_parser():
